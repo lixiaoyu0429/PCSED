@@ -7,108 +7,59 @@ import numpy as np
 import time
 import math
 import os
+import json
+import fnet as fnet_model
+from pathlib import Path
+
+file_folder = Path(__file__).parent
+
+with open(file_folder/f'config.json',encoding='utf-8') as f:
+    config = json.load(f)
+
+fnet_cfg = config['fnet']
 
 dtype = torch.float
 device_data = torch.device('cpu')
 device_train = torch.device('cuda:0')
 device_test = torch.device('cpu')
 
-Material = 'Meta'
+Material = 'TF'
 
 if Material == 'TF':
-    TrainingDataSize = 500000
-    TestingDataSize = 50000
-    IsParallel = False
-    EpochNum = 2001
-    TestInterval = 20
-    BatchSize = 1000
-    lr = 1e-3
+    TrainingDataSize = fnet_cfg['TrainingDataSize']
+    TestingDataSize = fnet_cfg['TestingDataSize']
+    IsParallel = fnet_cfg['IsParallel']
+    EpochNum = fnet_cfg['EpochNum']
+    TestInterval = fnet_cfg['TestInterval']
+    BatchSize = fnet_cfg['BatchSize']
+    lr = fnet_cfg['lr']
     if IsParallel:
         BatchSize = BatchSize * torch.cuda.device_count()
         lr = lr * torch.cuda.device_count()
-    lr_decay_step = 200
-    lr_decay_gamma = 0.8
+    lr_decay_step = fnet_cfg['lr_decay_step']
+    lr_decay_gamma = fnet_cfg['lr_decay_gamma']
 
     folder_name = time.strftime("%Y%m%d_%H%M%S", time.localtime())
     path = 'nets/fnet/' + folder_name + '/'
 
-    data = scio.loadmat('data/ThinFilms/data_TF_100-300nm.mat')
-    InputNum = int(data['LayersNum'])
-    StartWL = 400
-    EndWL = 701
-    Resolution = 2
+    train_data = scio.loadmat(fnet_cfg['TrainDataPath'])
+    test_data = scio.loadmat(fnet_cfg['TestDataPath'])
+    InputNum = train_data['d'].shape[1]
+    StartWL = fnet_cfg['StartWL']
+    EndWL = fnet_cfg['EndWL']
+    Resolution = fnet_cfg['Resolution']
     WL = np.arange(StartWL, EndWL, Resolution)
     OutputNum = WL.size
-    assert WL.size == np.array(data['WL']).size - 50
-    Input_train = torch.tensor(data['Thick_train'][:, 0:TrainingDataSize], device=device_data, dtype=dtype).T
-    Output_train = torch.tensor(data['Trans_train'][10:161, 0:TrainingDataSize], device=device_data, dtype=dtype).T
-    Input_test = torch.tensor(data['Thick_test'][:, 0:TestingDataSize], device=device_test, dtype=dtype).T
-    Output_test = torch.tensor(data['Trans_test'][10:161, 0:TestingDataSize], device=device_test, dtype=dtype).T
+    assert WL.size == np.array(train_data['wl']).size
+    Input_train = torch.tensor(train_data['d'][0:TrainingDataSize], device=device_data, dtype=dtype)
+    Output_train = torch.tensor(train_data['T'][0:TrainingDataSize], device=device_data, dtype=dtype)
+    Input_test = torch.tensor(test_data['d'][0:TestingDataSize], device=device_test, dtype=dtype)
+    Output_test = torch.tensor(test_data['T'][0:TestingDataSize], device=device_test, dtype=dtype)
 
-    del data
+    del train_data, test_data
 
-else:
-    TrainingDataRatio = 0.8
-    DataSize = 9 ** 4
-    TrainingDataSize = int(DataSize * TrainingDataRatio)
-    TestingDataSize = DataSize - TrainingDataSize
-    IsParallel = False
-    EpochNum = 2001
-    TestInterval = 20
-    BatchSize = 2000
-    lr = 1e-3
-    if IsParallel:
-        BatchSize = BatchSize * torch.cuda.device_count()
-        lr = lr * torch.cuda.device_count()
-    lr_decay_step = 200
-    lr_decay_gamma = 0.8
+fnet = fnet_model.get_fnet(InputNum, OutputNum)
 
-    folder_name = time.strftime("%Y%m%d_%H%M%S", time.localtime())
-    path = 'nets/fnet/' + folder_name + '/'
-
-    data = h5py.File('data/Metasurfaces/data_bricks.mat', 'r')
-    StartWL = 400
-    EndWL = 701
-    Resolution = 2
-    WL = np.arange(StartWL, EndWL, Resolution)
-    OutputNum = WL.size
-    Input_data = torch.tensor(data['params'][:, 0:DataSize], device=device_data, dtype=dtype).T * 1e9
-    Output_data = torch.tensor(data['T'][:, 0:DataSize], device=device_data, dtype=dtype).T
-    idx = torch.randperm(DataSize)
-    Input_data = Input_data[idx, :]
-    Output_data = Output_data[idx, :]
-    Input_train = Input_data[0:TrainingDataSize, :]
-    Output_train = Output_data[0:TrainingDataSize, :]
-    Input_test = Input_data[TrainingDataSize:TrainingDataSize+TestingDataSize, :]
-    Output_test = Output_data[TrainingDataSize:TrainingDataSize+TestingDataSize, :]
-    InputNum = Input_train.shape[1]
-    assert WL.size == Output_train.shape[1]
-
-    del data, Input_data, Output_data
-
-fnet = nn.Sequential(
-    nn.Linear(InputNum, 200),
-    nn.BatchNorm1d(200),
-    nn.LeakyReLU(inplace=True),
-    nn.Linear(200, 800),
-    nn.BatchNorm1d(800),
-    nn.LeakyReLU(inplace=True),
-    nn.Linear(800, 800),
-    nn.Dropout(0.1),
-    nn.BatchNorm1d(800),
-    nn.LeakyReLU(inplace=True),
-    nn.Linear(800, 800),
-    nn.Dropout(0.1),
-    nn.BatchNorm1d(800),
-    nn.LeakyReLU(inplace=True),
-    nn.Linear(800, 800),
-    nn.Dropout(0.1),
-    nn.BatchNorm1d(800),
-    nn.LeakyReLU(inplace=True),
-    nn.Linear(800, OutputNum),
-    nn.Dropout(0.1),
-    nn.Sigmoid()
-)
 if IsParallel:
     fnet = nn.DataParallel(fnet)
 fnet.to(device_train)
