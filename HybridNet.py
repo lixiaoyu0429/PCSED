@@ -1,10 +1,12 @@
+from typing import Any, Callable
 import torch
 import torch.nn as nn
 import torch.nn.functional as func
+from torch.nn.modules.module import Module
 
 
 class HybridNet(nn.Module):
-    def __init__(self, fnet_path, thick_min, thick_max, size, device):
+    def __init__(self, fnet_path, thick_min, thick_max, size,device):
         super(HybridNet, self).__init__()
         self.fnet = torch.load(fnet_path)
         self.fnet.to(device)
@@ -14,6 +16,8 @@ class HybridNet(nn.Module):
         self.tf_layer_num = self.fnet.state_dict()['0.weight'].data.size(1)
         self.DesignParams = nn.Parameter(
             (thick_max - thick_min) * torch.rand([size[1], self.tf_layer_num]) + thick_min, requires_grad=True)
+        
+
         self.SWNet = nn.Sequential()
         # self.SWNet.add_module('BatchNorm0', nn.BatchNorm1d(size[1]))
         self.SWNet.add_module('LReLU0', nn.LeakyReLU(inplace=True))
@@ -25,7 +29,8 @@ class HybridNet(nn.Module):
         self.to(device)
 
     def forward(self, data_input):
-        return self.SWNet(func.linear(data_input, self.fnet(self.DesignParams), None))
+        sampled = func.linear(data_input, self.fnet(self.DesignParams), None)
+        return self.SWNet(sampled)
 
     def show_design_params(self):
         return self.DesignParams
@@ -43,6 +48,25 @@ class HybridNet(nn.Module):
     def run_swnet(self, data_input, hw_weights_input):
         assert hw_weights_input.size(0) == self.DesignParams.size(0)
         return self.SWNet(func.linear(data_input, hw_weights_input, None))
+
+
+class NoisyHybridNet(HybridNet):
+    def __init__(self, fnet_path, thick_min, thick_max, size, noise_layer,device):
+        super(NoisyHybridNet, self).__init__(fnet_path, thick_min, thick_max, size,device)
+        
+        self.noise_layer = noise_layer
+        self.noise_layer.to(device)
+
+
+    def forward(self, data_input):
+        sampled = func.linear(data_input, self.fnet(self.DesignParams), None)
+        sampled = self.noise_layer(sampled)
+        return self.SWNet(sampled)
+    
+    def run_swnet(self, data_input, hw_weights_input):
+        sampled = self.noise_layer(func.linear(data_input, hw_weights_input, None))
+        return self.SWNet(sampled)
+
 
 
 MatchLossFcn = nn.MSELoss(reduction='mean')

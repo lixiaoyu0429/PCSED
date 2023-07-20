@@ -10,6 +10,9 @@ import os
 import json
 import fnet as fnet_model
 from pathlib import Path
+import shutil
+
+os.chdir(Path(__file__).parent)
 
 file_folder = Path(__file__).parent
 
@@ -40,10 +43,13 @@ if Material == 'TF':
     lr_decay_gamma = fnet_cfg['lr_decay_gamma']
 
     folder_name = time.strftime("%Y%m%d_%H%M%S", time.localtime())
-    path = 'nets/fnet/' + folder_name + '/'
+    path = Path('nets/fnet/' + folder_name + '/')
+    path.mkdir(parents=True)
 
     train_data = scio.loadmat(fnet_cfg['TrainDataPath'])
     test_data = scio.loadmat(fnet_cfg['TestDataPath'])
+    n_array = train_data['n']
+    scio.savemat(path / 'n.mat', {'n': n_array})
     InputNum = train_data['d'].shape[1]
     StartWL = fnet_cfg['StartWL']
     EndWL = fnet_cfg['EndWL']
@@ -75,7 +81,9 @@ loss_train = torch.zeros(math.ceil(EpochNum / TestInterval))
 loss_test = torch.zeros(math.ceil(EpochNum / TestInterval))
 
 os.makedirs(path, exist_ok=True)
-log_file = open(path + 'TrainingLog.txt', 'w+')
+with open(path/'config.json','w', encoding='utf-8') as cf:
+    json.dump(config, cf, indent=4, ensure_ascii=False)
+log_file = open(path / 'TrainingLog.txt', 'w+')
 time_start = time.time()
 time_epoch0 = time_start
 for epoch in range(EpochNum):
@@ -118,7 +126,7 @@ print('Training time: %.0fs (%dh%02dm%02ds)' % (time_total, h, m, s))
 print('Training time: %.0fs (%dh%02dm%02ds)' % (time_total, h, m, s), file=log_file)
 
 fnet.eval()
-torch.save(fnet, path + 'fnet.pkl')
+torch.save(fnet, path / 'fnet.pkl')
 
 fnet.to(device_test)
 Output_temp = fnet(Input_train[0, :].to(device_test).unsqueeze(0)).squeeze(0)
@@ -128,7 +136,7 @@ plt.plot(WL.T, Output_train[0, :].cpu().numpy())
 plt.plot(WL.T, Output_temp.detach().cpu().numpy())
 plt.ylim(0, 1)
 plt.legend(['GT', 'pred'], loc='lower right')
-plt.savefig(path + 'train')
+plt.savefig(path / 'train')
 plt.show()
 
 Output_temp = fnet(Input_test[0, :].to(device_test).unsqueeze(0)).squeeze(0)
@@ -138,7 +146,7 @@ plt.plot(WL.T, Output_test[0, :].cpu().numpy())
 plt.plot(WL.T, Output_temp.detach().cpu().numpy())
 plt.ylim(0, 1)
 plt.legend(['GT', 'pred'], loc='lower right')
-plt.savefig(path + 'test')
+plt.savefig(path / 'test')
 plt.show()
 
 print('Training finished!',
@@ -154,5 +162,5 @@ plt.plot(range(0, EpochNum, TestInterval), loss_train.detach().cpu().numpy())
 plt.plot(range(0, EpochNum, TestInterval), loss_test.detach().cpu().numpy())
 plt.semilogy()
 plt.legend(['Loss_train', 'Loss_test'], loc='upper right')
-plt.savefig(path + 'loss')
+plt.savefig(path / 'loss')
 plt.show()

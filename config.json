@@ -1,18 +1,41 @@
 {
     "fnet":{
-        "TrainingDataSize": 10000,
+        "TrainingDataSize": 100000,
         "TestingDataSize": 5000,
         "IsParallel": false,
-        "EpochNum": 101,
+        "EpochNum": 2001,
         "TestInterval": 20,
         "BatchSize": 1000,
         "lr": 1e-3,
         "lr_decay_step": 200,
         "lr_decay_gamma": 0.9,
-        "TrainDataPath": "data/coatings/L20_R5.0_T10-400_1M.mat",
-        "TestDataPath": "data/coatings/L20_R5.0_T10-400_50K.mat",
+        "TrainDataPath": "./data/L20_R5.0_T10-400_1M.mat",
+        "TestDataPath": "./data/L20_R5.0_T10-400_50K.mat",
         "StartWL": 400,
         "EndWL": 1005,
-        "Resolution": 5
+        "Resolution": 5,
+        "params_min": 10,
+        "params_max": 400
+    },
+    "PCSED":{
+        "TrainingDataSize": 1000000,
+        "TestingDataSize": 10000,
+        "IsParallel": false,
+        "EpochNum": 501,
+        "TestInterval": 10,
+        "BatchSize": 1000,
+        "lr": 1e-4,
+        "lr_decay_step": 100,
+        "lr_decay_gamma": 0.8,
+        "beta_range": 1e-3,
+        "TFNum": 9,
+        "fnet_folder": "./nets/fnet/BASELINE_L20_R5.0_T10-400_NOISELESS",
+        "TrainDataPath": "./data/ICVL_400-1000-5_1M.mat",
+        "TestDataPath": "./data/ICVL_400-1000-5_100K.mat"
+    },
+    "noise":{
+        "SNR": 20,
+        "alpha": 1,
+        "bitdepth": 8
     }
 }
