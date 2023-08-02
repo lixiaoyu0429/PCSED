@@ -1,5 +1,6 @@
 {
     "fnet":{
+        "model": "DCNN",
         "TrainingDataSize": 100000,
         "TestingDataSize": 5000,
         "IsParallel": false,
@@ -9,8 +10,8 @@
         "lr": 1e-3,
         "lr_decay_step": 200,
         "lr_decay_gamma": 0.9,
-        "TrainDataPath": "./data/L20_R5.0_T10-400_1M.mat",
-        "TestDataPath": "./data/L20_R5.0_T10-400_50K.mat",
+        "TrainDataPath": "./data/coatings/L20_R5.0_T10-400_1M.mat",
+        "TestDataPath": "./data/coatings/L20_R5.0_T10-400_50K.mat",
         "StartWL": 400,
         "EndWL": 1005,
         "Resolution": 5,

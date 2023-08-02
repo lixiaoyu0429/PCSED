@@ -64,7 +64,7 @@ if Material == 'TF':
 
     del train_data, test_data
 
-fnet = fnet_model.get_fnet(InputNum, OutputNum)
+fnet = fnet_model.get_fnet(InputNum, OutputNum, model=fnet_cfg.get('model','original'))
 
 if IsParallel:
     fnet = nn.DataParallel(fnet)

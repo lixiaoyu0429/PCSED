@@ -4,6 +4,18 @@ import torch.nn as nn
 import torch.nn.functional as func
 from torch.nn.modules.module import Module
 
+class SWNet(nn.Sequential):
+    def __init__(self,size, device):
+        super(SWNet, self).__init__()
+        self.add_module('LReLU0', nn.LeakyReLU(inplace=True))
+        self.add_module('LReLU0', nn.LeakyReLU(inplace=True))
+        for i in range(1, len(size) - 1):
+            self.add_module('Linear' + str(i), nn.Linear(size[i], size[i + 1]))
+            # self.SWNet.add_module('BatchNorm' + str(i), nn.BatchNorm1d(size[i+1]))
+            # self.SWNet.add_module('DropOut' + str(i), nn.Dropout(p=0.2))
+            self.add_module('LReLU' + str(i), nn.LeakyReLU(inplace=True))
+
+        self.to(device)
 
 class HybridNet(nn.Module):
     def __init__(self, fnet_path, thick_min, thick_max, size,device):
@@ -18,14 +30,7 @@ class HybridNet(nn.Module):
             (thick_max - thick_min) * torch.rand([size[1], self.tf_layer_num]) + thick_min, requires_grad=True)
         
 
-        self.SWNet = nn.Sequential()
-        # self.SWNet.add_module('BatchNorm0', nn.BatchNorm1d(size[1]))
-        self.SWNet.add_module('LReLU0', nn.LeakyReLU(inplace=True))
-        for i in range(1, len(size) - 1):
-            self.SWNet.add_module('Linear' + str(i), nn.Linear(size[i], size[i + 1]))
-            # self.SWNet.add_module('BatchNorm' + str(i), nn.BatchNorm1d(size[i+1]))
-            # self.SWNet.add_module('DropOut' + str(i), nn.Dropout(p=0.2))
-            self.SWNet.add_module('LReLU' + str(i), nn.LeakyReLU(inplace=True))
+        self.SWNet = SWNet(size,device)
         self.to(device)
 
     def forward(self, data_input):
