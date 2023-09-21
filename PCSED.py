@@ -69,3 +69,19 @@ class HybnetLoss(nn.Module):
         range_loss = torch.mean(torch.max(res, torch.zeros_like(res)))
 
         return match_loss + beta_range * range_loss
+    
+
+class D_PCSED(PCSED):
+    def __init__(self, fnet:nn.Module, rnet:nn.Module, config, device):
+        super(D_PCSED, self).__init__(fnet, rnet, config, device)
+        self.diff_row = config.get('diff_row', int(self.tf_layer_num**0.5))
+
+        self.original_idx = torch.arange(self.tf_layer_num, device=device)
+        self.diff_idx = torch.arange(self.tf_layer_num, device=device).reshape(self.diff_row, self.diff_row).roll(1, dims=1).reshape(-1)
+
+    def forward(self, data_input):
+        response = self.fnet(self.DesignParams)
+        diffed_response = response[:, self.diff_idx] - response[:, self.original_idx]
+        return self.rnet(func.linear(data_input, diffed_response, None))
+
+

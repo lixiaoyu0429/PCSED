@@ -28,7 +28,7 @@ class HybridNet(nn.Module):
         self.tf_layer_num = self.fnet.state_dict()['0.weight'].data.size(1)
         self.DesignParams = nn.Parameter(
             (thick_max - thick_min) * torch.rand([size[1], self.tf_layer_num]) + thick_min, requires_grad=True)
-        
+
 
         self.SWNet = SWNet(size,device)
         self.to(device)
@@ -70,6 +70,26 @@ class NoisyHybridNet(HybridNet):
     
     def run_swnet(self, data_input, hw_weights_input):
         sampled = self.noise_layer(func.linear(data_input, hw_weights_input, None))
+        return self.SWNet(sampled)
+
+class ND_HybridNet(NoisyHybridNet):
+    def __init__(self, diff_row ,fnet_path, thick_min, thick_max, size, noise_layer,device):
+        super(ND_HybridNet, self).__init__(fnet_path, thick_min, thick_max, size, noise_layer,device)
+        self.diff_row = diff_row
+        self.original_idx = torch.arange(size[1], device=device)
+        self.diff_idx = torch.arange(size[1], device=device).reshape(self.diff_row, -1).roll(1, dims=1).reshape(-1)
+        self.to(device)
+
+    def forward(self, data_input):
+        response = self.fnet(self.DesignParams)
+        sampled = func.linear(data_input, response, None)
+        sampled = self.noise_layer(sampled)
+        diffed_sampled = sampled[:, self.diff_idx] - sampled[:, self.original_idx]
+        return self.SWNet(diffed_sampled)
+    
+    def run_swnet(self, data_input, hw_weights_input):
+        diffed_response = hw_weights_input[:, self.diff_idx] - hw_weights_input[:, self.original_idx]
+        sampled = self.noise_layer(func.linear(data_input, diffed_response, None))
         return self.SWNet(sampled)
 
 

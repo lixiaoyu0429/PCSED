@@ -11,7 +11,7 @@ import json
 from pathlib import Path
 from tmm_acc import coh_tmm_normal_spol_spec_d
 import argparse
-from HybridNet import HybridNet,NoisyHybridNet
+from HybridNet import HybridNet,NoisyHybridNet,ND_HybridNet
 from NoiseLayer import *
 
 folder = Path(__file__).parent
@@ -26,6 +26,8 @@ def eval_hybnet(model, Output, T, noise_layer=None):
         sampled = func.linear(Output, model.fnet(model.DesignParams), None)
         if noise_layer is not None:
             sampled = noise_layer(sampled)
+        if isinstance(model,ND_HybridNet):
+            sampled = sampled[:,model.diff_idx] - sampled[:,model.original_idx]
         Output_pred = model.SWNet(sampled)
         loss_mat = (Output_pred - Output) ** 2
         loss = torch.mean(loss_mat, dim=1)
@@ -125,8 +127,8 @@ if __name__=='__main__':
         testing_model.change_noise_layer(SNR=SNR,alpha=1,bitdepth=8)
         pred_loss, pred_output = testing_model.eval(data,testing_model.TargetCurves_FMN,device_test)
         simu_loss, simu_output = testing_model.eval(data,testing_model.T,device_test)
-        print(f'SNR: {SNR}, Pred_loss: {np.mean(pred_loss)}, Simu_loss: {np.mean(simu_loss)}')
-        print(f'SNR: {SNR}, Pred_loss: {np.mean(pred_loss)}, Simu_loss: {np.mean(simu_loss)}',file=logger)
+        print(f'SNR: {SNR}, Pred_loss: {np.mean(pred_loss):.6f}, Simu_loss: {np.mean(simu_loss):.6f}')
+        print(f'SNR: {SNR}, Pred_loss: {np.mean(pred_loss):.6f}, Simu_loss: {np.mean(simu_loss):.6f}',file=logger)
 
 
 
