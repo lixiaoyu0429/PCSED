@@ -95,10 +95,14 @@ noise_layer = NoiseLayer(SNR=noise_cfg['SNR'], alpha=noise_cfg['alpha'], bitdept
 hybnet_size = [SpectralSliceNum, TFNum, 500, 500, SpectralSliceNum]
 hybnet = HybridNet.NoisyHybridNet(fnet_path, params_min, params_max, hybnet_size,noise_layer ,device_train, QEC=QEC)
 
-LossFcn = HybridNet.HybnetLoss()
+LossFcn = HybridNet.HybnetLoss_plus()
 
-optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, hybnet.parameters()), lr=lr)
-scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=lr_decay_step, gamma=lr_decay_gamma)
+optimizer_net = torch.optim.Adam(filter(lambda p: p.requires_grad, hybnet.SWNet.parameters()), lr=lr)
+scheduler_net = torch.optim.lr_scheduler.StepLR(optimizer_net, step_size=lr_decay_step, gamma=lr_decay_gamma)
+
+# hybnet.DesignParams.detach()
+optimizer_params = torch.optim.Adam(filter(lambda p: p.requires_grad, [hybnet.DesignParams]), lr=lr*config.get("params_lr_coef",1))
+scheduler_params = torch.optim.lr_scheduler.StepLR(optimizer_params, step_size=lr_decay_step, gamma=lr_decay_gamma)
 
 if config.get("override_filters"):
     dp = scio.loadmat(Path(config.get("override_filters"))/"TrainedParams.mat")["Params"]
@@ -122,11 +126,12 @@ for epoch in range(EpochNum):
         Specs_batch = Specs_train[i * BatchSize: i * BatchSize + BatchSize, :].to(device_train)
         Output_pred = hybnet(Specs_batch)
         DesignParams = hybnet.show_design_params()
-        loss = LossFcn(Specs_batch, Output_pred, DesignParams, params_min.to(device_train), params_max.to(device_train), beta_range)
-        optimizer.zero_grad()
+        responses = hybnet.show_hw_weights()
+        loss = LossFcn(Specs_batch, Output_pred, DesignParams, params_min.to(device_train), params_max.to(device_train), beta_range,responses=responses)
+        optimizer_net.zero_grad(),optimizer_params.zero_grad()
         loss.backward(retain_graph=True)
-        optimizer.step()
-    scheduler.step()
+        optimizer_net.step(),optimizer_params.step()
+    scheduler_net.step(), scheduler_params.step()
     if epoch % TestInterval == 0:
         hybnet.to(device_test)
         hybnet.eval()
@@ -150,10 +155,10 @@ for epoch in range(EpochNum):
         else:
             time_remain = (time.time() - time_epoch0) / epoch * (EpochNum - epoch)
         print('Epoch: ', epoch, '| train loss: %.5f' % loss.item(), '| test loss: %.5f' % loss_t.item(),
-              '| learn rate: %.8f' % scheduler.get_lr()[0], '| remaining time: %.0fs (to %s)'
+              '| learn rate: %.8f' % scheduler_net.get_lr()[0], '| remaining time: %.0fs (to %s)'
               % (time_remain, time.strftime('%H:%M:%S', time.localtime(time.time() + time_remain))))
         print('Epoch: ', epoch, '| train loss: %.5f' % loss.item(), '| test loss: %.5f' % loss_t.item(),
-              '| learn rate: %.8f' % scheduler.get_lr()[0], file=log_file)
+              '| learn rate: %.8f' % scheduler_net.get_lr()[0], file=log_file)
 time_end = time.time()
 time_total = time_end - time_start
 m, s = divmod(time_total, 60)

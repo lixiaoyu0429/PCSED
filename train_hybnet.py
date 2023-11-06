@@ -10,7 +10,7 @@ import os
 import json
 import shutil
 from pathlib import Path
-from tmm_acc import coh_tmm_normal_spol_spec_d
+from tmm_torch import TMM_predictor
 
 os.chdir(Path(__file__).parent)
 
@@ -22,7 +22,7 @@ with open('config.json', 'r') as f:
 dtype = torch.float
 device_data = torch.device("cpu")
 device_train = torch.device("cuda:0")
-device_test = torch.device("cpu")
+device_test = torch.device("cuda:0")
 
 Material = 'TF'
 TrainingDataSize = config['TrainingDataSize']
@@ -65,6 +65,9 @@ WL = np.arange(StartWL, EndWL, Resolution)
 SpectralSliceNum = WL.size
 
 
+
+
+
 Specs_train = torch.zeros([TrainingDataSize, SpectralSliceNum], device=device_data, dtype=dtype)
 Specs_test = torch.zeros([TestingDataSize, SpectralSliceNum], device=device_test, dtype=dtype)
 data = scio.loadmat(config['TrainDataPath'])
@@ -75,16 +78,28 @@ data = scio.loadmat(config['TestDataPath'])
 Specs_all = np.array(data['data'])
 np.random.shuffle(Specs_all)
 Specs_test = torch.tensor(
-    Specs_all[0:TestingDataSize, :])
+    Specs_all[0:TestingDataSize, :], device=device_test)
 
 
 del Specs_all, data
 assert SpectralSliceNum == Specs_train.size(1)
 
+QEC = 1
 
+if config.get('QEC'):
+    QEC = scio.loadmat(config['QEC'])['data']
 
 hybnet_size = [SpectralSliceNum, TFNum, 500, 500, SpectralSliceNum]
-hybnet = HybridNet.HybridNet(fnet_path, params_min, params_max, hybnet_size, device_train)
+hybnet = HybridNet.HybridNet(fnet_path, params_min, params_max, hybnet_size, device_train, QEC=QEC)
+
+if config.get("override_filters"):
+    design_params = scio.loadmat(Path(config.get("override_filters"))/"TrainedParams.mat")["Params"]
+    hybnet.set_design_params(torch.tensor(design_params, device=device_train, dtype=dtype))
+    hybnet.DesignParams.requires_grad = False
+    hybnet.eval_fnet()
+
+
+
 
 LossFcn = HybridNet.HybnetLoss()
 
@@ -99,6 +114,8 @@ loss_test = torch.zeros(math.ceil(EpochNum / TestInterval))
 log_file = open(path / 'TrainingLog.txt', 'w+')
 time_start = time.time()
 time_epoch0 = time_start
+params_history = [hybnet.show_design_params().detach().cpu().numpy()]
+
 for epoch in range(EpochNum):
     Specs_train = Specs_train[torch.randperm(TrainingDataSize), :]
     for i in range(0, TrainingDataSize // BatchSize):
@@ -117,6 +134,12 @@ for epoch in range(EpochNum):
         hybnet.to(device_train)
         hybnet.train()
         hybnet.eval_fnet()
+
+        DesignParams = hybnet.show_design_params()
+        if config.get("History"):
+            params_history.append(DesignParams.detach().cpu().numpy())
+            scio.savemat(path / "params_history.mat", {"params_history": params_history})
+
         loss_train[epoch // TestInterval] = loss.data
         loss_t = HybridNet.MatchLossFcn(Specs_test, Out_test_pred)
         loss_test[epoch // TestInterval] = loss_t.data

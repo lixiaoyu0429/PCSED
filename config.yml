@@ -1,0 +1,41 @@
+fnet:
+  model: original
+  TrainingDataSize: 1000000
+  TestingDataSize: 5000
+  IsParallel: false
+  EpochNum: 2001
+  TestInterval: 20
+  BatchSize: 500000
+  lr: 1.0e-3
+  lr_decay_step: 200
+  lr_decay_gamma: 0.9
+  TrainDataPath: ./data/coatings/L30_R5.0_T10-400_1M.mat
+  TestDataPath: ./data/coatings/L30_R5.0_T10-400_50K.mat
+  StartWL: 400
+  EndWL: 1005
+  Resolution: 5
+  params_min: 10
+  params_max: 400
+PCSED:
+  TrainingDataSize: 1000000
+  TestingDataSize: 10000
+  IsParallel: false
+  EpochNum: 101
+  TestInterval: 1
+  BatchSize: 10000
+  lr: 1.0e-4
+  params_lr_coef: 1.0e+3
+  lr_decay_step: 100
+  lr_decay_gamma: 0.8
+  beta_range: 1.0e-3
+  TFNum: 9
+  #override_filters: ./nets/hybnet/20231027_104727
+  QEC: ./data/QEC.mat
+  fnet_folder: ./nets/fnet/TMM_L20_R5.0
+  TrainDataPath: ./data/ICVL_400-1000-5_1M.mat
+  TestDataPath: ./data/ICVL_400-1000-5_100K.mat
+  History: true
+noise:
+  SNR: 60
+  alpha: 1
+  bitdepth: 8

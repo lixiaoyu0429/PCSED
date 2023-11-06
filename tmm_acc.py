@@ -146,9 +146,9 @@ def coh_tmm_normal_spol_spec_d(n_array, d_array, lam_vac_list, device='cpu')->np
     # delta = kz_array * d_list   # (num_lam, num_layers)
 
     delta = tl.zeros((num_f, num_lam, num_layers), dtype=torch.complex64, device=device)
+    
     for l in range(num_layers):
         delta[:,:,l] = d_array[:,l].reshape(-1,1) @ kz_array[:,l].reshape(1,-1)
-
     delta = delta.reshape(num_f * num_lam, num_layers)
 
     np.seterr(**olderr)
@@ -208,6 +208,26 @@ def coh_tmm_normal_spol_spec_d(n_array, d_array, lam_vac_list, device='cpu')->np
     del _n, _r, t_list, Mtilde_array, t_array, r_array, delta, n_array, d_array, kz_array
 
     return T.real.reshape(num_f, num_lam).cpu().numpy()
+
+class TMM_Predictor:
+    def __init__(self, lam_vac_list:np.ndarray, n_array:np.ndarray, thickness_range:tuple[int], device:torch.device):
+        self.device = device
+        self.lam_vac_list = lam_vac_list
+        self.n_array = n_array
+        self.num_layers = n_array.shape[1] - 2
+        self.num_lam = n_array.shape[0]
+        self.thickness_range = thickness_range
+
+    def predict(self, d_array:np.ndarray):
+        return coh_tmm_normal_spol_spec_d(self.n_array, d_array, self.lam_vac_list, device=self.device)
+    
+    def boundary(self, d_array:np.ndarray):
+        d_array[d_array < self.thickness_range[0]] = self.thickness_range[0]
+        d_array[d_array > self.thickness_range[1]] = self.thickness_range[1]
+        return d_array
+
+    
+        
 
 if __name__ == '__main__':
     import scipy.io as sio

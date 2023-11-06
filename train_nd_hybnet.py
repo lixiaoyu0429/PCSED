@@ -1,3 +1,5 @@
+# 差分透过率训练
+
 import HybridNet
 from NoiseLayer import *
 import torch
@@ -12,6 +14,7 @@ import json
 import shutil
 from pathlib import Path
 from tmm_acc import coh_tmm_normal_spol_spec_d
+from tmm_torch import TMM_predictor
 
 os.chdir(Path(__file__).parent)
 
@@ -105,6 +108,7 @@ loss = torch.tensor([0], device=device_train)
 loss_train = torch.zeros(math.ceil(EpochNum / TestInterval))
 loss_test = torch.zeros(math.ceil(EpochNum / TestInterval))
 
+params_history = []
 
 log_file = open(path / 'TrainingLog.txt', 'w+')
 time_start = time.time()
@@ -127,6 +131,13 @@ for epoch in range(EpochNum):
         hybnet.to(device_train)
         hybnet.train()
         hybnet.eval_fnet()
+
+        DesignParams = hybnet.show_design_params()
+
+        if config.get("History"):
+            params_history.append(DesignParams.detach().cpu().numpy())
+            scio.savemat(path / "params_history.mat", {"params_history": params_history})
+
         loss_train[epoch // TestInterval] = loss.data
         loss_t = HybridNet.MatchLossFcn(Specs_test, Out_test_pred)
         loss_test[epoch // TestInterval] = loss_t.data

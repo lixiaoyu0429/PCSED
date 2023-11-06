@@ -8,6 +8,7 @@ import time
 import math
 import os
 import json
+import yaml
 from pathlib import Path
 from tmm_acc import coh_tmm_normal_spol_spec_d
 import argparse
@@ -36,8 +37,12 @@ def eval_hybnet(model, Output, T, noise_layer=None):
 class Hybnet_folder:
     def __init__(self,model_folder:Path):
         self.model_folder = model_folder
-        with open(model_folder/'config.json',encoding='utf-8') as f:
-            config = json.load(f)
+        try:
+            with open(model_folder/'config.json',encoding='utf-8') as f:
+                config = json.load(f)
+        except FileNotFoundError:
+            with open(model_folder/'config.yml',encoding='utf-8') as f:
+                config = yaml.safe_load(f)
 
         self.fnet_cfg = config['fnet']
         self.PCSED_cfg = config['PCSED']
@@ -102,11 +107,19 @@ class Hybnet_folder:
 if __name__=='__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('model_folder', type=str, help='path to the Hybnet model folder')
+    parser.add_argument('-c','--curves',type=str, default='',help='folder to alter the curves')
+
     args = parser.parse_args()
 
     model_folder = Path(args.model_folder)
     
     testing_model = Hybnet_folder(model_folder)
+
+    if not args.curves == '':
+        curves_folder = Path(args.curves)
+        testing_model.TargetCurves = scio.loadmat(curves_folder/'TargetCurves.mat')['TargetCurves']
+        testing_model.TargetCurves_FMN = scio.loadmat(curves_folder/'TargetCurves_FMN.mat')['TargetCurves_FMN']
+
     testing_model.load_model(device_test)
     testing_model.plot_T()
     data = scio.loadmat(testing_model.PCSED_cfg['TestDataPath'])['data']
