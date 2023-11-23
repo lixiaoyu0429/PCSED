@@ -1,9 +1,10 @@
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 import torch
 import torch.nn as nn
 import torch.nn.functional as func
 from torch.nn.modules.module import Module
 from tmm_torch import TMM_predictor
+import numpy as np
 
 class SWNet(nn.Sequential):
     """
@@ -34,12 +35,12 @@ class HybridNet(nn.Module):
     The design parameters of the fnet are learned by the model.
 
     Args:
-    - fnet_path (str): The file path to the pre-trained fnet model.
+    - fnet_path (str): The file path to the pre-trained fnet model or a tmm_torch model.
     - thick_min (float): The minimum thickness value for the design parameters.
     - thick_max (float): The maximum thickness value for the design parameters.
     - size (tuple): The input size of the SWNet.
     - device (str): The device to run the model on.
-    - QEC (int or numpy.ndarray): The quantum error correction (QEC) value. Default is 1.
+    - QEC (int or numpy.ndarray): The quantum error correction (QEC) value or curve. Default is 1.
 
     Attributes:
     - fnet (nn.Module): The pre-trained fixed neural network.

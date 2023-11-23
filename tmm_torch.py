@@ -89,10 +89,6 @@ class TMM_predictor(nn.Module):
 
         Mtilde_array = make_nx2x2_array(num_f * self.num_lam,1, 0, 0, 1, dtype=torch.complex64, device=device)
         for i in range(1, self.num_layers-1):
-            # M_list[i] = (1/t_list[i,i+1]) * np.dot(
-            #     make_2x2_array(exp(-1j*delta[i]), 0, 0, exp(1j*delta[i]),
-            #                    dtype=complex),
-            #     make_2x2_array(1, r_list[i,i+1], r_list[i,i+1], 1, dtype=complex))
             _m = (1/t_array[:,i].reshape(-1,1,1)) * torch.matmul(
                 make_nx2x2_array(num_f * self.num_lam, torch.exp(-1j*delta[:,i]), 0, 0, torch.exp(1j*delta[:,i]), dtype=torch.complex64, device=device),
                 make_nx2x2_array(num_f * self.num_lam, 1, r_array[:,i], r_array[:,i], 1, dtype=torch.complex64, device=device)

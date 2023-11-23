@@ -4,10 +4,11 @@ import torch.nn as nn
 import torch.nn.functional as func
 
 class NoiseLayer(nn.Module):
-    def __init__(self, SNR, alpha, bitdepth=8) -> None:
+    def __init__(self, SNR, alpha, dc=0 , bitdepth=8) -> None:
         super(NoiseLayer,self).__init__()
         self.SNR = SNR
         self.alpha = alpha
+        self.dc = dc
         self.bitdepth = bitdepth
 
     def forward(self, input):
@@ -32,6 +33,10 @@ class NoiseLayer(nn.Module):
 
         noise = dependent_noise + independent_noise
         noisy_data = input + noise
+
+        # dark current
+        if self.dc > 0:
+            noisy_data = noisy_data + self.dc
 
         # quantization
         L = 2 ** self.bitdepth - 1
