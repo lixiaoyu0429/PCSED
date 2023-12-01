@@ -90,7 +90,7 @@ QEC = 1
 if config.get('QEC'):
     QEC = scio.loadmat(config['QEC'])['data']
 
-noise_layer = NoiseLayer(SNR=noise_cfg['SNR'], alpha=noise_cfg['alpha'], bitdepth=noise_cfg['bitdepth'])
+noise_layer = NoiseLayer(SNR=noise_cfg['SNR'], alpha=noise_cfg['alpha'],dc=noise_cfg['dc'], bitdepth=noise_cfg['bitdepth'])
 
 hybnet_size = [SpectralSliceNum, TFNum, 500, 500, SpectralSliceNum]
 hybnet = HybridNet.NoisyHybridNet(fnet_path, params_min, params_max, hybnet_size,noise_layer ,device_train, QEC=QEC)

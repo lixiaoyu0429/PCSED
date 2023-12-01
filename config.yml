@@ -38,4 +38,5 @@ PCSED:
 noise:
   SNR: 60
   alpha: 1
+  dc: 0
   bitdepth: 8

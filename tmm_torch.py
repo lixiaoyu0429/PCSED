@@ -45,7 +45,28 @@ def make_nx2x2_array(n, a, b, c, d, **kwargs):
 
 
 class TMM_predictor(nn.Module):
+    """
+    TMM_predictor类用于实现传输矩阵法（TMM）预测器模型。
+
+    参数：
+    lambda_list: 一个包含波长的列表。
+    n_array: 一个包含折射率的数组。
+
+    返回：
+    无返回值。
+    """
+
     def __init__(self, lambda_list, n_array):
+        """
+        初始化函数，用于创建TMM_predictor对象。
+
+        参数：
+        lambda_list: 一个包含波长的列表。
+        n_array: 一个包含折射率的数组。
+
+        返回：
+        无返回值。
+        """
         super(TMM_predictor, self).__init__()
         self.dummy_param = nn.Parameter(torch.empty(0), requires_grad=False)
         device = self.dummy_param.device
@@ -68,6 +89,15 @@ class TMM_predictor(nn.Module):
         return self        
         
     def forward(self, d_array:torch.Tensor):
+        """
+        前向传播函数，用于计算TMM_predictor模型的输出。
+
+        参数：
+        d_array: 一个包含厚度的张量。
+
+        返回：
+        T: 一个包含传输系数的张量，表示传输的能量占输入能量的比例。
+        """
         device = self.dummy_param.device
 
         d_array = d_array.to(torch.complex64)
@@ -109,8 +139,7 @@ class TMM_predictor(nn.Module):
 
         t_list = 1/Mtilde_array[:,0,0]
 
-        # Net transmitted and reflected power, as a proportion of the incoming light
-        # power.
+        # Net transmitted and reflected power, as a proportion of the incoming light power.
         _n = self.n_array.repeat(num_f,1)
         _r = _n[:,-1] / _n[:,0]
         T = abs(t_list**2) * _r
@@ -184,7 +213,7 @@ if __name__=='__main__':
     # export to .json
     with open(folder/'config.json', 'w', encoding='utf-8') as f:
         json.dump(config, f, ensure_ascii=False, indent=4)
-
+    
     sio.savemat(folder/'n.mat',{'n':n_array})
 
 

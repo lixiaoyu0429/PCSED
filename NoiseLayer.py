@@ -4,6 +4,13 @@ import torch.nn as nn
 import torch.nn.functional as func
 
 class NoiseLayer(nn.Module):
+    """
+    Noise Layer
+
+    Adapted from Padilla-Zepeda E, Torres-Roman D, Mendez-Vazquez A. A Semantic Segmentation Framework for Hyperspectral Imagery Based on Tucker Decomposition and 3DCNN Tested with Simulated Noisy Scenarios[J]. Remote Sensing, 2023, 15(5): 1399.
+
+    Add support for dark current
+    """
     def __init__(self, SNR, alpha, dc=0 , bitdepth=8) -> None:
         super(NoiseLayer,self).__init__()
         self.SNR = SNR
