@@ -51,6 +51,7 @@ with open(path/'config.json', 'w', encoding='utf-8') as f:
         , f, ensure_ascii=False, indent=4)
     
 shutil.copy(fnet_folder/'n.mat',path/'n.mat')
+shutil.copy('HybridNet.py',path/'HybridNet.py')
 
 fnet_path = fnet_folder/'fnet.pkl'
 
