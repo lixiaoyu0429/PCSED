@@ -6,6 +6,11 @@ from torch.nn.modules.module import Module
 from tmm_torch import TMM_predictor
 import numpy as np
 
+import scipy.io as scio
+
+dictionary = scio.loadmat(r'data\Data_merged_Comp_50_K_10_Iter_150.mat')['Dictionary']
+dictionary = torch.from_numpy(dictionary).float().cuda()
+
 class SWNet(nn.Sequential):
     """
     A neural network model that consists of multiple linear layers with leaky ReLU activation function.
@@ -263,15 +268,22 @@ class HybnetLoss_plus(HybnetLoss):
         original_loss = super(HybnetLoss_plus, self).forward(*args)
 
         rloss = 0
-        # calculate the cosine similarity between the responses
-        if not responses is None:
-            TFNum = responses.size(0)
-            for i in range(TFNum):
-                for j in range(i+1, TFNum):
-                    rloss += torch.cosine_similarity(responses[i], responses[j], dim=0)
-            rloss /= TFNum * (TFNum-1) / 2
+        # # calculate the cosine similarity between the responses
+        # if not responses is None:
+        #     TFNum = responses.size(0)
+        #     for i in range(TFNum):
+        #         for j in range(i+1, TFNum):
+        #             rloss += torch.cosine_similarity(responses[i], responses[j], dim=0)
+        #     rloss /= TFNum * (TFNum-1) / 2
 
-            rloss = rloss **2
+        #     rloss = rloss **2
+
+        # calculate the gram matrix of the responses
+        if not responses is None:
+            D = torch.matmul(responses, dictionary)
+            gram = torch.matmul(D, D.T)
+            gram = gram / torch.norm(gram, dim=(0,1))
+            rloss = torch.mean((gram - torch.eye(gram.size(0), device=gram.device))**2)
 
 
         return original_loss + rloss

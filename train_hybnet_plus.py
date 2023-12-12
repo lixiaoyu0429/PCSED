@@ -65,6 +65,7 @@ with open(path/'config.yml', 'w', encoding='utf-8') as f:
         {'fnet': fnet_config,'PCSED': config}
         , f, default_flow_style=False)
 shutil.copy(fnet_folder/'n.mat',path/'n.mat')
+shutil.copy('HybridNet.py',path/'HybridNet.py')
 
 # Load fnet
 fnet_path = fnet_folder/'fnet.pkl'

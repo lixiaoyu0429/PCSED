@@ -28,7 +28,7 @@ PCSED:
   lr_decay_step: 100
   lr_decay_gamma: 0.8
   beta_range: 1.0e-3
-  TFNum: 9
+  TFNum: 25
   #override_filters: ./nets/hybnet/20231027_104727
   QEC: ./data/QEC.mat
   fnet_folder: ./nets/fnet/TMM_L20_R5.0
