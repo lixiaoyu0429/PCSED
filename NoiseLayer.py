@@ -17,38 +17,48 @@ class NoiseLayer(nn.Module):
         self.alpha = alpha
         self.dc = dc
         self.bitdepth = bitdepth
+        self.add_noise = True
+        self.quantization = True
 
     def forward(self, input):
         # input: [batch_size, channel, height, width]
 
         # calculate the power of the input signal
 
-        input_shape = tuple(input.shape)
+        if self.add_noise:
 
-        input_power = torch.mean(torch.pow(input, 2))
+            input_shape = tuple(input.shape)
 
-        sigma = input_power * (10 ** (-self.SNR / 10))
+            input_power = torch.mean(torch.pow(input, 2))
 
-        sigma_sd = sigma * self.alpha / (1+self.alpha)
-        sigma_si = sigma / (1+self.alpha)
+            sigma = input_power * (10 ** (-self.SNR / 10))
 
-        RandomVariable_sd = torch.normal(mean=0., std=torch.sqrt(sigma_sd).item(), size=input_shape, device=input.device)
+            sigma_sd = sigma * self.alpha / (1+self.alpha)
+            sigma_si = sigma / (1+self.alpha)
 
-        dependent_noise = input * RandomVariable_sd
+            RandomVariable_sd = torch.normal(mean=0., std=torch.sqrt(sigma_sd).item(), size=input_shape, device=input.device)
 
-        independent_noise = torch.normal(mean=0., std=torch.sqrt(sigma_si).item(), size=input_shape, device=input.device)
+            dependent_noise = input * RandomVariable_sd
 
-        noise = dependent_noise + independent_noise
-        noisy_data = input + noise
+            independent_noise = torch.normal(mean=0., std=torch.sqrt(sigma_si).item(), size=input_shape, device=input.device)
 
-        # dark current
-        if self.dc > 0:
-            noisy_data = noisy_data + self.dc
+            noise = dependent_noise + independent_noise
+            noisy_data = input + noise
 
-        # quantization
-        L = 2 ** self.bitdepth - 1
-        noisy_data = torch.round(noisy_data * L) / L
-        noisy_data = torch.clamp(noisy_data, min=0)
+            # dark current
+            if self.dc > 0:
+                noisy_data = noisy_data + self.dc
+        else:
+            noisy_data = input
+
+        if self.quantization:
+
+            # quantization
+            L = 2 ** self.bitdepth - 1
+            noisy_data = torch.round(noisy_data * L) / L
+            noisy_data = torch.clamp(noisy_data, min=0)
+        else:
+            noisy_data = input
 
         return noisy_data
 
