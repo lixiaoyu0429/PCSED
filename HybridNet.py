@@ -263,6 +263,7 @@ class HybnetLoss(nn.Module):
 class HybnetLoss_plus(HybnetLoss):
     def __init__(self):
         super(HybnetLoss_plus, self).__init__()
+        torch.autograd.set_detect_anomaly(True)
     
     def forward(self, *args, responses=None):
         original_loss = super(HybnetLoss_plus, self).forward(*args)
@@ -278,13 +279,27 @@ class HybnetLoss_plus(HybnetLoss):
 
         #     rloss = rloss **2
 
-        # calculate the gram matrix of the responses
+        # calculate the gram matrix of the responses_DeCorrelation1
         if not responses is None:
             D = torch.matmul(responses, dictionary)
-            gram = torch.matmul(D, D.T)
-            gram = gram / torch.norm(gram, dim=(0,1))
+            D = D / torch.norm(D, dim=(0,1))
+            gram = torch.matmul(D.T, D)
             rloss = torch.mean((gram - torch.eye(gram.size(0), device=gram.device))**2)
 
+        # calculate the gram matrix of the responses_DeCorrelation
+        # if not responses is None:
+        #     D = torch.matmul(responses, dictionary)
+        #     D = D / torch.norm(D, dim=(0,1))
+        #     noy, nos = D.shape
+        #     gram = torch.matmul(D.T, D)
+        #     Sigma, V = torch.linalg.eig(gram)
+        #     Sigma = Sigma.real
+        #     V = V.real
+        #     # Sigma[torch.abs(Sigma) > 1e-10] = nos / noy
+        #     # using torch.where instead
+        #     Sigma = torch.where(torch.abs(Sigma) > 1e-10, nos / noy, Sigma)
+        #     newGram = torch.mm(torch.mm(V, torch.diag_embed(Sigma)), V.t())
+        #     rloss = torch.mean(gram-newGram)
 
         return original_loss + rloss
 

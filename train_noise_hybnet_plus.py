@@ -16,11 +16,13 @@ from tmm_torch import TMM_predictor
 
 os.chdir(Path(__file__).parent)
 
-with open('config.json', 'r') as f:
-    f = json.load(f)
-    config = f['PCSED']
-    noise_cfg = f['noise']
+# Load configuration from YAML file
+import yaml
+with open('config.yml', 'r') as f:
+    d: dict = yaml.safe_load(f)
 
+config = d['PCSED']
+noise_cfg = d['noise']
 
 
 dtype = torch.float
@@ -46,16 +48,20 @@ path.mkdir(parents=True, exist_ok=True)
 
 fnet_folder = Path(config['fnet_folder'])
 
+# Load configuration for fnet
+fnet_folder = Path(config['fnet_folder'])
 with open(fnet_folder/'config.json',encoding='utf-8') as f:
     fnet_config = json.load(f)['fnet']
 
-with open(path/'config.json', 'w', encoding='utf-8') as f:
-    json.dump(
-        {'fnet': fnet_config,'PCSED': config, 'noise': noise_cfg}
-        , f, ensure_ascii=False, indent=4)
-    
+# Save configuration for HybNet and fnet
+with open(path/'config.yml', 'w', encoding='utf-8') as f:
+    yaml.dump(
+        {'fnet': fnet_config,'PCSED': config}
+        , f, default_flow_style=False)
 shutil.copy(fnet_folder/'n.mat',path/'n.mat')
 shutil.copy('HybridNet.py',path/'HybridNet.py')
+    
+
 
 fnet_path = fnet_folder/'fnet.pkl'
 
@@ -75,6 +81,11 @@ data = scio.loadmat(config['TrainDataPath'])
 Specs_all = np.array(data['data'])
 np.random.shuffle(Specs_all)
 Specs_train = torch.tensor(Specs_all[0:TrainingDataSize, :])
+# copy 10 times
+Specs_train = Specs_train.repeat(10,1)
+
+
+
 data = scio.loadmat(config['TestDataPath'])
 Specs_all = np.array(data['data'])
 np.random.shuffle(Specs_all)

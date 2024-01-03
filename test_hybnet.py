@@ -136,12 +136,20 @@ if __name__=='__main__':
     test_SNR = [60,30,20,10,0]
 
     for SNR in test_SNR:
-        nl = NoiseLayer(SNR=SNR, alpha=1, bitdepth=8)
-        testing_model.change_noise_layer(SNR=SNR,alpha=1,bitdepth=8)
+        testing_model.change_noise_layer(SNR=SNR,alpha=0,bitdepth=8)
         pred_loss, pred_output = testing_model.eval(data,testing_model.TargetCurves_FMN,device_test)
         simu_loss, simu_output = testing_model.eval(data,testing_model.T,device_test)
         print(f'SNR: {SNR}, Pred_loss: {np.mean(pred_loss):.6f}, Simu_loss: {np.mean(simu_loss):.6f}')
         print(f'SNR: {SNR}, Pred_loss: {np.mean(pred_loss):.6f}, Simu_loss: {np.mean(simu_loss):.6f}',file=logger)
+
+        # plot a result
+        plt.figure(figsize=(10, 10))
+        plt.plot(testing_model.WL, data[0],'--' , label='Target')
+        plt.plot(testing_model.WL, pred_output[0], label='Pred')
+        plt.title(f'SNR: {SNR}, Pred_loss: {np.mean(pred_loss):.6f}, Simu_loss: {np.mean(simu_loss):.6f}')
+        plt.legend()
+        plt.show()
+        
 
 
 
