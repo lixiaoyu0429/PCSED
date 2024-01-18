@@ -1,4 +1,4 @@
-import HybridNet
+import arch.HybridNet as HybridNet
 import torch
 import matplotlib.pyplot as plt
 import scipy.io as scio

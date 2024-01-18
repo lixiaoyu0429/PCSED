@@ -23,13 +23,13 @@ PCSED:
   EpochNum: 101
   TestInterval: 1
   BatchSize: 10000
-  lr: 1.0e-4
-  params_lr_coef: 1.0e+3
+  lr: 1.0e-3
+  params_lr_coef: 1.0e+2
   lr_decay_step: 100
-  lr_decay_gamma: 0.8
+  lr_decay_gamma: 0.9
   beta_range: 1.0e-3
-  TFNum: 25
-  #override_filters: ./nets/hybnet/20231027_104727
+  TFNum: 9 
+  #override_filters: ./nets/hybnet/202031027_104727
   QEC: ./data/QEC.mat
   fnet_folder: ./nets/fnet/TMM_L20_R5.0
   TrainDataPath: ./data/ICVL_400-1000-5_1M.mat
@@ -37,6 +37,6 @@ PCSED:
   History: true
 noise:
   SNR: 60
-  alpha: 0.0
+  alpha: 0.
   dc: 0
   bitdepth: 8

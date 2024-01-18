@@ -58,7 +58,7 @@ class NoiseLayer(nn.Module):
             noisy_data = torch.round(noisy_data * L) / L
             noisy_data = torch.clamp(noisy_data, min=0)
         else:
-            noisy_data = input
+            noisy_data = noisy_data
 
         return noisy_data
 
