@@ -215,18 +215,20 @@ class ND_HybridNet(NoisyHybridNet):
         sampled = self.noise_layer(func.linear(data_input, diffed_response, None))
         return self.SWNet(sampled)
     
-from ADMM_net import ADMM_net
+from .ADMM_net import ADMM_net_2D
 
 class ADMM_HybridNet(HybridNet):
     def __init__(self, fnet_path, thick_min, thick_max, size, device, QEC=1):
         super(ADMM_HybridNet, self).__init__(fnet_path, thick_min, thick_max, size, device, QEC=QEC)
 
-        self.ADMM_net = ADMM_net(size[0])
+        self.ADMM_net = ADMM_net_2D(size[0])
         self.ADMM_net.to(device)
 
     def forward(self, data_input:torch.Tensor):
         Phi = self.fnet(self.DesignParams)* self.QEC
-        data_input = data_input.reshape(data_input.size(0), data_input.size(1), 1)
+        Phi = Phi.transpose(1,2).unsqueeze(0)
+        data_input = data_input.unsqueeze(0)
+
         return self.ADMM_net(data_input, Phi).reshape(data_input.size(0), -1)
 
 

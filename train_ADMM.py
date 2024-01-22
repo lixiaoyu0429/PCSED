@@ -8,7 +8,7 @@ The script also logs the training process and saves the trained HybNet.
 """
 
 # Import necessary libraries
-import HybridNet
+import arch.HybridNet as HybridNet
 import torch
 import matplotlib.pyplot as plt
 import scipy.io as scio

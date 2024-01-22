@@ -123,12 +123,12 @@ class ADMM_net(nn.Module):
 
     def forward(self, y, input_mask=None):
         if input_mask == None:
-            Phi = torch.rand((1, self.shape[2], self.shape[0], self.shape[1])).cuda()
+            Phi = torch.rand((1, self.shape[2], self.shape[0], self.shape[1])).cuda() # [1, 28, 256, 310]
             Phi_s = torch.rand((1, self.shape[0], self.shape[1])).cuda()
         else:
             Phi, Phi_s = input_mask
         x_list = []
-        theta = At(y,Phi)
+        theta = At(y,Phi) # [1, 28, 256, 310]
         b = torch.zeros_like(Phi)
 
         for i in range(self.stages):
@@ -146,10 +146,27 @@ class ADMM_net(nn.Module):
 
 class ADMM_net_2D(nn.Module):
     def __init__(self, n_channel=121,stages=9):
-        self.gammas = torch.nn.Parameter(torch.Tensor([0]*stages))
         super(ADMM_net_2D, self).__init__()
+        self.gammas = torch.nn.Parameter(torch.Tensor([0]*stages))
         self.stages = stages
         self.n_channel = n_channel
 
     def forward(self, y, Phi):
-        pass
+
+        def At(y,Phi):
+            temp = torch.unsqueeze(y, 1).repeat(1,Phi.shape[1],1)
+            x = temp*Phi
+            return x
+
+        x_list = []
+        theta = At(y,Phi)
+        b = torch.zeros_like(Phi)
+
+        for i in range(self.stages):
+            yb = A(theta+b,Phi)
+            x = theta+b + A(torch.div(y-yb,Phi+self.gammas[i]),Phi)
+            theta = x-b
+            b = b- (x-theta)
+            x_list.append(theta)
+
+        return theta
