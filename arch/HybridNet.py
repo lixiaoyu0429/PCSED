@@ -216,7 +216,7 @@ class ND_HybridNet(NoisyHybridNet):
         return self.SWNet(sampled)
     
 from .ADMM_net import ADMM_net
-
+from .Mosiac import Mosiac_Layer
 class ADMM_HybridNet(HybridNet):
     def __init__(self, fnet_path, thick_min, thick_max, size, device, QEC=1):
         super(ADMM_HybridNet, self).__init__(fnet_path, thick_min, thick_max, size, device, QEC=QEC)
@@ -224,8 +224,14 @@ class ADMM_HybridNet(HybridNet):
         self.ADMM_net = ADMM_net()
         self.ADMM_net.to(device)
 
+        self.Phi_model = Mosiac_Layer((3, 3), [[0, 1, 2], [3, 4, 5], [6, 7, 8]])
+        self.Phi_model.to(device)
+
+
     def forward(self, data_input:torch.Tensor):
-        Phi = self.fnet(self.DesignParams)* self.QEC
+        Phi_curves = self.fnet(self.DesignParams)* self.QEC
+
+        Phi = self.Phi_model.get_Phi(Phi_curves)
 
         # TODO: 往下面加推理
 

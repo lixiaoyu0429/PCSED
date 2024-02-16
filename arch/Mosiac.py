@@ -64,6 +64,26 @@ class Mosiac_Layer(nn.Module):
 
         return mosiac_image
     
+    def get_Phi(self,input, Phi):
+        """
+        :param input: input hyperspectral image, shape: [batch_size, h, w, n_lambda]
+        :param Phi: the response curve, shape: [n_channel, n_lambda]
+        :return: the multichannel Phi, shape: [batch_size, h, w, n_lambda]
+        """
+
+        batch_size, h, w, n_lambda = input.shape
+
+        n_channel = Phi.shape[0]
+
+        mosiac_Phi = torch.zeros([batch_size, h, w, n_lambda], device=input.device, dtype=input.dtype)
+
+        for c in range(self.n_channel):
+            i = c // self.shape[1]
+            j = c % self.shape[1]
+            # mosiac_image += input[:, i::self.shape[0], j::self.shape[1], :]  Phi[self.pattern[i][j], :]
+            mosiac_Phi[:,i::self.shape[0], j::self.shape[1],:] = Phi[self.pattern[i][j]]
+
+        return mosiac_Phi
 
 class RGGB_Layer(Mosiac_Layer):
     def __init__(self) -> None:
