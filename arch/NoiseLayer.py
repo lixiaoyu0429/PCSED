@@ -17,8 +17,8 @@ class NoiseLayer(nn.Module):
         self.alpha = alpha
         self.dc = dc
         self.bitdepth = bitdepth
-        self.add_noise = True
-        self.quantization = True
+        self.add_noise = True if SNR < 100 else False
+        self.quantization = True if bitdepth >0 else False
 
     def forward(self, input):
         # input: [batch_size, channel, height, width]
@@ -74,6 +74,25 @@ class ClearNoiseLayer(nn.Module):
         # quantization
         L = 2 ** self.bitdepth - 1
         noisy_data = torch.round(input * L) / L
+        noisy_data = torch.clamp(noisy_data, 0, 1)
+
+        return noisy_data
+    
+class NoiseLayer_Classic(nn.Module):
+    def __init__(self, amp, bitdepth=8) -> None:
+        super(NoiseLayer_Classic,self).__init__()
+        self.amp = amp
+        self.bitdepth = bitdepth
+
+    def forward(self, input):
+        # input: [batch_size, channel, height, width]
+
+        # add noise
+        noisy_data = input + torch.normal(mean=0., std=self.amp, size=input.shape, device=input.device)
+
+        # quantization
+        L = 2 ** self.bitdepth - 1
+        noisy_data = torch.round(noisy_data * L) / L
         noisy_data = torch.clamp(noisy_data, 0, 1)
 
         return noisy_data

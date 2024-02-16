@@ -95,7 +95,7 @@ def shift_back_3d(inputs,step=2):
 
 class ADMM_net(nn.Module):
 
-    def __init__(self, shape=(256,310,28), stages=9):
+    def __init__(self, shape=(128,128,121)):
         super(ADMM_net, self).__init__()
 
         self.shape = shape
@@ -110,63 +110,150 @@ class ADMM_net(nn.Module):
         self.unet7 = Unet(self.c, self.c)
         self.unet8 = Unet(self.c, self.c)
         self.unet9 = Unet(self.c, self.c)
-        # self.gamma1 = torch.nn.Parameter(torch.Tensor([0]))
-        # self.gamma2 = torch.nn.Parameter(torch.Tensor([0]))
-        # self.gamma3 = torch.nn.Parameter(torch.Tensor([0]))
-        # self.gamma4 = torch.nn.Parameter(torch.Tensor([0]))
-        # self.gamma5 = torch.nn.Parameter(torch.Tensor([0]))
-        # self.gamma6 = torch.nn.Parameter(torch.Tensor([0]))
-        # self.gamma7 = torch.nn.Parameter(torch.Tensor([0]))
-        # self.gamma8 = torch.nn.Parameter(torch.Tensor([0]))
-        # self.gamma9 = torch.nn.Parameter(torch.Tensor([0]))
-        self.gammas = torch.nn.Parameter(torch.Tensor([0]*stages))
+        self.gamma1 = torch.nn.Parameter(torch.Tensor([0]))
+        self.gamma2 = torch.nn.Parameter(torch.Tensor([0]))
+        self.gamma3 = torch.nn.Parameter(torch.Tensor([0]))
+        self.gamma4 = torch.nn.Parameter(torch.Tensor([0]))
+        self.gamma5 = torch.nn.Parameter(torch.Tensor([0]))
+        self.gamma6 = torch.nn.Parameter(torch.Tensor([0]))
+        self.gamma7 = torch.nn.Parameter(torch.Tensor([0]))
+        self.gamma8 = torch.nn.Parameter(torch.Tensor([0]))
+        self.gamma9 = torch.nn.Parameter(torch.Tensor([0]))
 
     def forward(self, y, input_mask=None):
         if input_mask == None:
-            Phi = torch.rand((1, self.shape[2], self.shape[0], self.shape[1])).cuda() # [1, 28, 256, 310]
-            Phi_s = torch.rand((1, self.shape[0], self.shape[1])).cuda()
+            Phi = torch.rand((1, self.shape[2], self.shape[0], self.shape[1])).cuda() # 3d mask
+            Phi_s = torch.rand((1, self.shape[0], self.shape[1])).cuda()    # 2d mask
         else:
             Phi, Phi_s = input_mask
         x_list = []
-        theta = At(y,Phi) # [1, 28, 256, 310]
+        theta = At(y,Phi)
         b = torch.zeros_like(Phi)
 
-        for i in range(self.stages):
+        for i in range(9):
             yb = A(theta+b,Phi)
-            # x = theta+b + At(torch.div(y-yb,Phi_s+getattr(self, f"gamma{i+1}")),Phi)
-            x = theta+b + At(torch.div(y-yb,Phi_s+self.gammas[i]),Phi)
+            x = theta+b + At(torch.div(y-yb,Phi_s+getattr(self, f"gamma{i+1}")),Phi)
             x1 = x-b
-            x1 = shift_back_3d(x1)
+            # x1 = shift_back_3d(x1)
             theta = getattr(self, f"unet{i+1}")(x1)
-            theta = shift_3d(theta)
+            # theta = shift_3d(theta)
             b = b- (x-theta)
             x_list.append(theta)
 
         return theta[:, :, :, 0:self.shape[0]]
 
+# class ADMM_net_2D(nn.Module):
+#     def __init__(self, n_channel=121,stages=9):
+#         self.gammas = torch.nn.Parameter(torch.Tensor([0]*stages))
+#         super(ADMM_net_2D, self).__init__()
+#         self.stages = stages
+#         self.n_channel = n_channel
+
+#     def forward(self, y, Phi):
+        
+
 class ADMM_net_2D(nn.Module):
     def __init__(self, n_channel=121,stages=9):
         super(ADMM_net_2D, self).__init__()
-        self.gammas = torch.nn.Parameter(torch.Tensor([0]*stages))
+        self.gammas = torch.nn.Parameter(torch.Tensor([10]*stages))
         self.stages = stages
         self.n_channel = n_channel
 
-    def forward(self, y, Phi):
-
-        def At(y,Phi):
-            temp = torch.unsqueeze(y, 1).repeat(1,Phi.shape[1],1)
-            x = temp*Phi
+    def forward(self, y, Phi:torch.Tensor):
+        # y: [batch, 9]
+        # Phi: [9, 121]
+        def At(y,p):
+            temp = y.unsqueeze(1).repeat(1,p.shape[1],1)
+            x = temp*p
             return x
+        
+        PhiT = Phi.transpose(1,0).unsqueeze(0) # [1, 121, 9]
 
         x_list = []
-        theta = At(y,Phi)
-        b = torch.zeros_like(Phi)
+        theta = At(y,PhiT).sum(dim=2) # PhiT @ y [batch, 121]
+        b = torch.zeros_like(theta)  
+
+        Phi_PhiT = torch.matmul(Phi,PhiT[0])
+        rm = torch.diag(Phi_PhiT) 
 
         for i in range(self.stages):
-            yb = A(theta+b,Phi)
-            x = theta+b + A(torch.div(y-yb,Phi+self.gammas[i]),Phi)
+            yb = torch.matmul(theta+b,PhiT[0])
+            x = theta+b      
+            inv = torch.div(y-yb,rm+self.gammas[i]) # [batch, 9]
+            x += At(inv,PhiT).sum(dim=2)
             theta = x-b
             b = b- (x-theta)
             x_list.append(theta)
 
         return theta
+    
+class MyModel(nn.Module):
+    def __init__(self,channel=26):
+        super(MyModel, self).__init__()
+        self.fc1 = nn.Linear(channel, 150)
+        self.fc2 = nn.Linear(150, 150)
+        self.fc3 = nn.Linear(150, 150)
+        self.fc4 = nn.Linear(150, 150)
+        self.fc5 = nn.Linear(150, channel)
+
+    def forward(self, x):
+        x = x.view(x.size(0), -1)
+        x = torch.relu(self.fc1(x))
+        x = torch.relu(self.fc2(x))
+        x = torch.relu(self.fc3(x))
+        x = torch.relu(self.fc4(x))
+        x = self.fc5(x)
+        x = x.view(x.size(0), x.size(1), 1)
+        return x
+
+class ADMM_net_2(nn.Module):
+    def __init__(self, channel=26, SNR=30, alpha=0, stages=9):
+        super(ADMM_net_2, self).__init__()
+        self.mymodel = MyModel(channel)
+        self.stages = stages
+        # merge all gamma into one
+        self.gamma = torch.nn.Parameter(torch.Tensor([10]*stages))
+    def forward(self, imgs, Phi): #, Train=True):
+        # if Train:
+        #     self.noisemodel.quantization=False
+        #     self.noisemodel.add_noise=False
+        # else:
+        #     self.noisemodel.quantization=True
+        #     self.noisemodel.add_noise=True
+
+        size = imgs.size()
+        batch, Nx, _ = size
+
+        Phi = Phi.float()
+        PhiT = torch.transpose(Phi.float(), dim0=0, dim1=1)
+        PhiT_Phi = torch.matmul(PhiT, Phi)
+
+        clear_y = torch.matmul(Phi, imgs)
+        y = clear_y
+        v = torch.matmul(PhiT,y)
+        u = torch.zeros_like(v)
+        I = torch.eye(PhiT_Phi.size()[0]).to(PhiT_Phi.device)
+        for i in range(1, self.stages+1):
+            # ************   方法一求x  直接法求逆   ******************
+            gamma = self.gamma[i-1]
+            qiu_ni = torch.inverse(PhiT_Phi+(gamma*I))
+            vplusu = v+u
+            x = torch.matmul(qiu_ni, (torch.matmul(PhiT, y) + vplusu))
+            v = self.mymodel(x - u)
+            u = u - (x - v)
+            # ************   方法二求 x 通过公式替代求逆   ***************
+            # rm = torch.diag(torch.matmul(Phi, PhiT))
+            # up = y - torch.matmul(Phi, ((v+u)/self.gamma[i-1]))
+            # down = (self.gamma[i-1]+rm).reshape(9,1)
+            # at = up / down
+            # xt = (v+u)/self.gamma[i-1] + torch.matmul(PhiT, at)
+            # v = self.mymodel(xt - u)
+            # u = u - (xt - v)
+            # ****************以下为算保真率代码****************************
+            # x_p = x.squeeze()
+            # xt_p = xt.squeeze()
+            # x_p = x_p.detach().cpu().numpy()
+            # xt_p = xt_p.detach().cpu().numpy()
+            # fidelity_pixel = np.dot(x_p, xt_p) / (np.linalg.norm(x_p) * np.linalg.norm(xt_p))
+            # print("site: ", i, ". fidelity: ", fidelity_pixel)
+        return v

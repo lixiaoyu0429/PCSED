@@ -14,8 +14,9 @@ from tmm_torch import TMM_predictor
 
 os.chdir(Path(__file__).parent)
 
-with open('config.json', 'r') as f:
-    config = json.load(f)['PCSED']
+import yaml
+with open('config.yml', 'r') as f:
+    config: dict = yaml.safe_load(f)['PCSED']
 
 
 
@@ -51,7 +52,7 @@ with open(path/'config.json', 'w', encoding='utf-8') as f:
         , f, ensure_ascii=False, indent=4)
     
 shutil.copy(fnet_folder/'n.mat',path/'n.mat')
-shutil.copy('HybridNet.py',path/'HybridNet.py')
+# shutil.copy('HybridNet.py',path/'HybridNet.py')
 
 fnet_path = fnet_folder/'fnet.pkl'
 

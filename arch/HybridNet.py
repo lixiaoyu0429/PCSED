@@ -8,7 +8,7 @@ import numpy as np
 
 import scipy.io as scio
 
-dictionary = scio.loadmat(r'data\Data_merged_Comp_50_K_10_Iter_150.mat')['Dictionary']
+dictionary = scio.loadmat(r'data/Data_merged_Comp_50_K_10_Iter_150.mat')['Dictionary']
 dictionary = torch.from_numpy(dictionary).float().cuda()
 
 class SWNet(nn.Sequential):
@@ -73,7 +73,7 @@ class HybridNet(nn.Module):
 
         # Initialize the design parameters of the fnet
         self.DesignParams = nn.Parameter(
-            (thick_max - thick_min) * torch.rand([size[1], self.tf_layer_num])*0+50 + thick_min, requires_grad=True)
+            (thick_max - thick_min) * torch.rand([size[1], self.tf_layer_num]) + thick_min, requires_grad=True)
 
         # Set the QEC value
         self.QEC = QEC
@@ -215,21 +215,23 @@ class ND_HybridNet(NoisyHybridNet):
         sampled = self.noise_layer(func.linear(data_input, diffed_response, None))
         return self.SWNet(sampled)
     
-from .ADMM_net import ADMM_net_2D
+from .ADMM_net import ADMM_net
 
 class ADMM_HybridNet(HybridNet):
     def __init__(self, fnet_path, thick_min, thick_max, size, device, QEC=1):
         super(ADMM_HybridNet, self).__init__(fnet_path, thick_min, thick_max, size, device, QEC=QEC)
 
-        self.ADMM_net = ADMM_net_2D(size[0])
+        self.ADMM_net = ADMM_net()
         self.ADMM_net.to(device)
 
     def forward(self, data_input:torch.Tensor):
         Phi = self.fnet(self.DesignParams)* self.QEC
-        Phi = Phi.transpose(1,2).unsqueeze(0)
-        data_input = data_input.unsqueeze(0)
 
-        return self.ADMM_net(data_input, Phi).reshape(data_input.size(0), -1)
+        # TODO: 往下面加推理
+
+
+
+
 
 
 
@@ -267,17 +269,27 @@ class HybnetLoss(nn.Module):
         # MSE loss
         match_loss = MatchLossFcn(t1, t2)
 
+        
+
         # Filter loss: square of the difference between total thickness 
-        filter_loss = torch.var(torch.sum(params, dim=1))/1000
+        filter_loss = torch.var(torch.sum(params, dim=1)/torch.sum(params, dim=1).max())
         filter_loss = 0
+
+        # Total thickness regularization.
+        
+        max_thick = 2000
+        total_thick = torch.sum(params, dim=1)
+        total_thick_loss = torch.mean(torch.max(torch.zeros_like(total_thick), total_thick - max_thick))
+        total_thick_loss = total_thick_loss/ max_thick
+        # total_thick_loss = 0
 
         # Structure parameter range regularization.
         # U-shaped function，U([param_min + delta, param_max - delta]) = 0, U(param_min) = U(param_max) = 1。
         delta = 0.01
         res = torch.max((params - thick_min - delta) / (-delta), (params - thick_max + delta) / delta)
         range_loss = torch.mean(torch.max(res, torch.zeros_like(res)))
-
-        return match_loss + beta_range * range_loss + beta_range * filter_loss
+        # print(match_loss, beta_range * range_loss, 0.01* filter_loss, total_thick_loss, end=' ')
+        return match_loss + beta_range * (range_loss +  filter_loss + total_thick_loss)
     
 class HybnetLoss_plus(HybnetLoss):
     def __init__(self):
@@ -286,7 +298,7 @@ class HybnetLoss_plus(HybnetLoss):
     
     def forward(self, *args, responses=None):
         original_loss = super(HybnetLoss_plus, self).forward(*args)
-
+        beta_range = args[-1]
         rloss = 0
         # # calculate the cosine similarity between the responses
         # if not responses is None:
@@ -300,7 +312,8 @@ class HybnetLoss_plus(HybnetLoss):
 
         # calculate the gram matrix of the responses_DeCorrelation1
         if not responses is None:
-            D = torch.matmul(responses, dictionary)
+            # D = torch.matmul(responses, dictionary)
+            D = responses
             D = D / torch.norm(D, dim=(0,1))
             gram = torch.matmul(D.T, D)
             rloss = torch.mean((gram - torch.eye(gram.size(0), device=gram.device))**2)
@@ -319,8 +332,8 @@ class HybnetLoss_plus(HybnetLoss):
         #     Sigma = torch.where(torch.abs(Sigma) > 1e-10, nos / noy, Sigma)
         #     newGram = torch.mm(torch.mm(V, torch.diag_embed(Sigma)), V.t())
         #     rloss = torch.mean(gram-newGram)
-
-        return original_loss + rloss
+        # print(original_loss, rloss *beta_range *10)
+        return original_loss + rloss *beta_range *10
 
 
 

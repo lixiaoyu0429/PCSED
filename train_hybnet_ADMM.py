@@ -29,11 +29,18 @@ from load_config import *
 
 # Set size of HybNet and create HybNet object
 hybnet_size = [SpectralSliceNum, TFNum, 500, 500, SpectralSliceNum]
-hybnet = HybridNet.HybridNet(fnet_path, params_min, params_max, hybnet_size, device_train, QEC=QEC)
+hybnet = HybridNet.ADMM_HybridNet(fnet_path, params_min, params_max, hybnet_size, device_train, QEC=QEC)
+
+hybnet.ADMM_net = torch.load(Path(config['ADMM_net']))
+hybnet.ADMM_net.to(device_train)
+hybnet.ADMM_net.eval()
 
 # Override filters if specified in configuration
 if config.get("override_filters"):
-    design_params = scio.loadmat(Path(config.get("override_filters"))/"TrainedParams.mat")["Params"]
+    try:
+        design_params = scio.loadmat(Path(config.get("override_filters")))["params"]
+    except:
+        design_params = scio.loadmat(Path(config.get("override_filters"))/"TrainedParams.mat")["Params"]
     hybnet.set_design_params(torch.tensor(design_params, device=device_train, dtype=dtype))
     hybnet.DesignParams.requires_grad = False
     hybnet.eval_fnet()
@@ -41,10 +48,9 @@ if config.get("override_filters"):
 # Set loss function and optimizer
 LossFcn = HybridNet.HybnetLoss_plus()
 optimizer_net = torch.optim.Adam(filter(lambda p: p.requires_grad, hybnet.SWNet.parameters()), lr=lr)
-scheduler_net = torch.optim.lr_scheduler.StepLR(optimizer_net, step_size=lr_decay_step, gamma=lr_decay_gamma)
+scheduler_net = torch.optim.lr_scheduler.StepLR(optimizer_net, step_size=lr_decay_step, gamma=lr_decay_gamma) 
 optimizer_params = torch.optim.Adam(filter(lambda p: p.requires_grad, [hybnet.DesignParams]), lr=lr*config.get("params_lr_coef",1))
 scheduler_params = torch.optim.lr_scheduler.StepLR(optimizer_params, step_size=lr_decay_step, gamma=lr_decay_gamma)
-# scheduler_params = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer_params, T_max=EpochNum, eta_min=1e-2, verbose=True)
 
 # Initialize variables for logging and training
 loss = torch.tensor([0], device=device_train)

@@ -12,8 +12,8 @@ import yaml
 from pathlib import Path
 from tmm_acc import coh_tmm_normal_spol_spec_d
 import argparse
-from HybridNet import HybridNet,NoisyHybridNet,ND_HybridNet
-from NoiseLayer import *
+from arch.HybridNet import HybridNet,NoisyHybridNet,ND_HybridNet
+from arch.NoiseLayer import *
 
 folder = Path(__file__).parent
 
@@ -24,7 +24,7 @@ device_test = torch.device('cuda:0')
 def eval_hybnet(model, Output, T, noise_layer=None):
     model.eval()
     with torch.no_grad():
-        sampled = func.linear(Output, model.fnet(model.DesignParams), None)
+        sampled = func.linear(Output,T, None)
         if noise_layer is not None:
             sampled = noise_layer(sampled)
         if isinstance(model,ND_HybridNet):
@@ -94,6 +94,15 @@ class Hybnet_folder:
             self.model.forward = NoisyHybridNet.forward
             self.model.run_swnet = NoisyHybridNet.run_swnet
 
+    def change_noise_layer_classic(self,amp,bitdepth=8):
+        self.noise_layer = NoiseLayer_Classic(amp=amp, bitdepth=bitdepth)
+        if isinstance(self.model,NoisyHybridNet):
+            self.model.noise_layer = self.noise_layer
+        elif isinstance(self.model,HybridNet):
+            self.model.noise_layer = self.noise_layer
+            self.model.forward = NoisyHybridNet.forward
+            self.model.run_swnet = NoisyHybridNet.run_swnet
+
     def eval(self,data,T,device):
         if not isinstance(data, torch.Tensor):
             data = torch.tensor(data, device=device, dtype=dtype)
@@ -133,23 +142,38 @@ if __name__=='__main__':
     print('Mean MSE of simulated curves:', np.mean(simu_loss))
     print('Mean MSE of simulated curves:', np.mean(simu_loss),file=logger)
 
-    test_SNR = [60,30,20,10,0]
+    # test_SNR = [60,30,20,10,0]
 
-    for SNR in test_SNR:
-        testing_model.change_noise_layer(SNR=SNR,alpha=0,bitdepth=8)
+    # for SNR in test_SNR:
+    #     testing_model.change_noise_layer(SNR=SNR,alpha=0,bitdepth=8)
+    #     pred_loss, pred_output = testing_model.eval(data,testing_model.TargetCurves_FMN,device_test)
+    #     simu_loss, simu_output = testing_model.eval(data,testing_model.T,device_test)
+    #     print(f'SNR: {SNR}, Pred_loss: {np.mean(pred_loss):.6f}, Simu_loss: {np.mean(simu_loss):.6f}')
+    #     print(f'SNR: {SNR}, Pred_loss: {np.mean(pred_loss):.6f}, Simu_loss: {np.mean(simu_loss):.6f}',file=logger)
+
+    #     # plot a result
+    #     plt.figure(figsize=(10, 10))
+    #     plt.plot(testing_model.WL, data[0],'--' , label='Target')
+    #     plt.plot(testing_model.WL, pred_output[0], label='Pred')
+    #     plt.title(f'SNR: {SNR}, Pred_loss: {np.mean(pred_loss):.6f}, Simu_loss: {np.mean(simu_loss):.6f}')
+    #     plt.legend()
+    #     plt.show()
+    
+    test_amp = [0, 0.03, 0.05, 0.1]
+    for amp in test_amp:
+        testing_model.change_noise_layer_classic(amp=amp,bitdepth=8)
         pred_loss, pred_output = testing_model.eval(data,testing_model.TargetCurves_FMN,device_test)
         simu_loss, simu_output = testing_model.eval(data,testing_model.T,device_test)
-        print(f'SNR: {SNR}, Pred_loss: {np.mean(pred_loss):.6f}, Simu_loss: {np.mean(simu_loss):.6f}')
-        print(f'SNR: {SNR}, Pred_loss: {np.mean(pred_loss):.6f}, Simu_loss: {np.mean(simu_loss):.6f}',file=logger)
+        print(f'amp: {amp}, Pred_loss: {np.mean(pred_loss):.6f}, Simu_loss: {np.mean(simu_loss):.6f}')
+        print(f'amp: {amp}, Pred_loss: {np.mean(pred_loss):.6f}, Simu_loss: {np.mean(simu_loss):.6f}',file=logger)
 
         # plot a result
         plt.figure(figsize=(10, 10))
         plt.plot(testing_model.WL, data[0],'--' , label='Target')
         plt.plot(testing_model.WL, pred_output[0], label='Pred')
-        plt.title(f'SNR: {SNR}, Pred_loss: {np.mean(pred_loss):.6f}, Simu_loss: {np.mean(simu_loss):.6f}')
+        plt.title(f'amp: {amp}, Pred_loss: {np.mean(pred_loss):.6f}, Simu_loss: {np.mean(simu_loss):.6f}')
         plt.legend()
         plt.show()
-        
 
 
 

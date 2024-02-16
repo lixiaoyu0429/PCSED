@@ -12,8 +12,7 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('--config', type=str, default='config.yml', help='path to config file')
 parser.add_argument('-n', '--nettype', type=str, default='hybnet', help='type of network to train')
-parser.add_argument('-r','--response',type=str, default='',help='folder to alter the response curves')
-args = parser.parse_args()
+args = parser.parse_args([])
 
 # Set working directory to the directory of this script
 os.chdir(Path(__file__).parent)
@@ -45,21 +44,13 @@ TFNum = config['TFNum']
 # Create folder to save trained HybNet
 folder_name = time.strftime("%Y%m%d_%H%M%S", time.localtime())
 
-path = Path(f'nets/{args.nettype}/{folder_name}/')
-path.mkdir(parents=True, exist_ok=True)
 
 # Load configuration for fnet
 fnet_folder = Path(config['fnet_folder'])
 with open(fnet_folder/'config.json',encoding='utf-8') as f:
     fnet_config = json.load(f)['fnet']
 
-# Save configuration for HybNet and fnet
-with open(path/'config.yml', 'w', encoding='utf-8') as f:
-    yaml.dump(
-        {'fnet': fnet_config,'PCSED': config}
-        , f, default_flow_style=False)
-shutil.copy(fnet_folder/'n.mat',path/'n.mat')
-shutil.copy('arch/HybridNet.py',path/'HybridNet.py')
+
 
 
 # Load fnet

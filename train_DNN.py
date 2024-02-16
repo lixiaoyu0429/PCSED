@@ -3,9 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as func
 import numpy as np
 
-from arch.fnet import DCNN, Reshape, DCNN_3
-from arch.ADMM_net import ADMM_net_2D, ADMM_net_2
-from arch.GAP_net import GAP_net_2
+from arch.HybridNet import SWNet
+
 from load_config import *
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 dtype = torch.float
@@ -13,9 +12,11 @@ dtype = torch.float
 import math
 import tqdm
 
-net = GAP_net_2(121, stages=5)
 
-EpochNum = 501
+# Set size of HybNet and create HybNet object
+net_size = [SpectralSliceNum, TFNum, 500, 500, SpectralSliceNum]
+net = SWNet(net_size, device)
+
 
 LossFcn = nn.MSELoss()
 
@@ -27,7 +28,16 @@ loss_train = torch.zeros(math.ceil(EpochNum / TestInterval))
 loss_test = torch.zeros(math.ceil(EpochNum / TestInterval))
 net.to(device_train)
 
-phi = torch.rand((16,121)).to(device_train)
+QEC = torch.from_numpy(QEC).to(device_train)
+
+# Override filters if specified in configuration
+if not args.response == '':
+    phi = scio.loadmat(args.response)['T']
+    phi = torch.from_numpy(phi).to(device_train)
+else:
+    phi = torch.rand(TFNum,SpectralSliceNum).to(device_train)
+
+    phi= phi * QEC
 
 # Train HybNet
 for epoch in tqdm.tqdm(range(EpochNum)):
@@ -36,10 +46,10 @@ for epoch in tqdm.tqdm(range(EpochNum)):
     for i in range(0, TrainingDataSize // BatchSize):
         # Get batch of training data
         Specs_batch = Specs_train[i * BatchSize: i * BatchSize + BatchSize, :].to(device_train)
-        # sampled = torch.matmul(Specs_batch, phi.T).to(device_train)
-        sampled = Specs_batch.unsqueeze(-1)
+        sampled = torch.matmul(Specs_batch, phi.T).to(device_train)
+
         # Forward pass through HybNet
-        Output_pred = net(sampled, torch.rand(16,121).to(device_train)).sum(dim=2)
+        Output_pred = net(sampled)
         # Calculate loss and backpropagate
         loss = LossFcn(Specs_batch, Output_pred)
         optimizer_net.zero_grad()
